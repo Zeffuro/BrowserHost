@@ -9,6 +9,8 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using Dalamud.Game;
+using Dalamud.Game.Gui;
 
 namespace BrowserHost.Plugin
 {
@@ -18,7 +20,10 @@ namespace BrowserHost.Plugin
 
 		private static string COMMAND = "/bh";
 
-		private DalamudPluginInterface pluginInterface;
+		public static DalamudPluginInterface PluginInterface { get; private set; } = null!;
+		public static CommandManager CommandManager { get; private set; } = null!;
+		public Framework Framework { get; private set; } = null!;
+		public static ChatGui ChatGui { get; private set; } = null!;
 		private string pluginDir;
 
 		private DependencyManager dependencyManager;
@@ -29,14 +34,16 @@ namespace BrowserHost.Plugin
 
 		// Required for LivePluginLoader support
 		public string AssemblyLocation { get; private set; } = Assembly.GetExecutingAssembly().Location;
-
-		public void Initialize(DalamudPluginInterface pluginInterface)
+		public Plugin(DalamudPluginInterface pluginInterface, CommandManager commandManager, Framework framework, ChatGui chatGui)
 		{
-			this.pluginInterface = pluginInterface;
+			PluginInterface = pluginInterface;
+			CommandManager = commandManager;
+			Framework = framework;
+			ChatGui = chatGui;
 			pluginDir = Path.GetDirectoryName(AssemblyLocation);
 
 			// Hook up render hook
-			pluginInterface.UiBuilder.OnBuildUi += Render;
+			pluginInterface.UiBuilder.Draw += Render;
 
 			dependencyManager = new DependencyManager(pluginDir);
 			dependencyManager.DependenciesReady += (sender, args) => DependenciesReady();
@@ -46,7 +53,7 @@ namespace BrowserHost.Plugin
 		private void DependenciesReady()
 		{
 			// Spin up DX handling from the plugin interface
-			DxHandler.Initialise(pluginInterface);
+			DxHandler.Initialise(PluginInterface);
 
 			// Spin up WndProc hook
 			WndProcHandler.Initialise(DxHandler.WindowHandle);
@@ -60,7 +67,7 @@ namespace BrowserHost.Plugin
 			renderProcess.Start();
 
 			// Prep settings
-			settings = new Settings(pluginInterface);
+			settings = new Settings(PluginInterface, ChatGui);
 			settings.InlayAdded += OnInlayAdded;
 			settings.InlayNavigated += OnInlayNavigated;
 			settings.InlayDebugged += OnInlayDebugged;
@@ -69,7 +76,7 @@ namespace BrowserHost.Plugin
 			settings.Initialise();
 
 			// Hook up the main BH command
-			pluginInterface.CommandManager.AddHandler(COMMAND, new CommandInfo(HandleCommand)
+			CommandManager.AddHandler(COMMAND, new CommandInfo(HandleCommand)
 			{
 				HelpMessage = "Control BrowserHost from the chat line! Type '/bh config' or open the settings for more info.",
 				ShowInHelp = true,
@@ -163,7 +170,7 @@ namespace BrowserHost.Plugin
 
 			if (args.Length == 0)
 			{
-				pluginInterface.Framework.Gui.Chat.PrintError(
+				ChatGui.PrintError(
 					"No subcommand specified. Valid subcommands are: config,inlay.");
 				return;
 			}
@@ -179,7 +186,7 @@ namespace BrowserHost.Plugin
 					settings.HandleInlayCommand(subcommandArgs);
 					break;
 				default:
-					pluginInterface.Framework.Gui.Chat.PrintError(
+					ChatGui.PrintError(
 						$"Unknown subcommand '{args[0]}'. Valid subcommands are: config,inlay.");
 					break;
 			}
@@ -194,12 +201,12 @@ namespace BrowserHost.Plugin
 
 			settings?.Dispose();
 
-			pluginInterface.CommandManager.RemoveHandler(COMMAND);
+			CommandManager.RemoveHandler(COMMAND);
 
 			WndProcHandler.Shutdown();
 			DxHandler.Shutdown();
 
-			pluginInterface.Dispose();
+			PluginInterface.Dispose();
 
 			dependencyManager.Dispose();
 		}

@@ -9,6 +9,8 @@ using System.Linq;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Dalamud.Game;
+using Dalamud.Game.Gui;
 
 namespace BrowserHost.Plugin
 {
@@ -22,7 +24,9 @@ namespace BrowserHost.Plugin
 
 		public Configuration Config;
 
-		private DalamudPluginInterface pluginInterface;
+		private readonly DalamudPluginInterface pluginInterface;
+
+		private readonly ChatGui chatGui;
 
 #if DEBUG
 		private bool open = true;
@@ -35,11 +39,12 @@ namespace BrowserHost.Plugin
 		InlayConfiguration selectedInlay = null;
 		private Timer saveDebounceTimer;
 
-		public Settings(DalamudPluginInterface pluginInterface)
+		public Settings(DalamudPluginInterface pluginInterface, ChatGui chatGui)
 		{
 			this.pluginInterface = pluginInterface;
+			this.chatGui = chatGui;
 
-			pluginInterface.UiBuilder.OnOpenConfigUi += (sender, args) => open = true;
+			pluginInterface.UiBuilder.OpenConfigUi += () => open = true;
 		}
 
 		public void Initialise()
@@ -63,7 +68,7 @@ namespace BrowserHost.Plugin
 			// Ensure there's enough arguments
 			if (args.Length < 3)
 			{
-				pluginInterface.Framework.Gui.Chat.PrintError(
+				chatGui.PrintError(
 					"Invalid inlay command. Supported syntax: '[inlayCommandName] [setting] [value]'");
 				return;
 			}
@@ -72,7 +77,7 @@ namespace BrowserHost.Plugin
 			var targetConfig = Config.Inlays.Find(inlay => GetInlayCommandName(inlay) == args[0]);
 			if (targetConfig == null)
 			{
-				pluginInterface.Framework.Gui.Chat.PrintError(
+				chatGui.PrintError(
 					$"Unknown inlay '{args[0]}'.");
 				return;
 			}
@@ -97,7 +102,7 @@ namespace BrowserHost.Plugin
 					CommandSettingBoolean(args[2], ref targetConfig.ClickThrough);
 					break;
 				default:
-					pluginInterface.Framework.Gui.Chat.PrintError(
+					chatGui.PrintError(
 						$"Unknown setting '{args[1]}. Valid settings are: url,hidden,locked,clickthrough.");
 					return;
 			}
@@ -124,7 +129,7 @@ namespace BrowserHost.Plugin
 					target = !target;
 					break;
 				default:
-					pluginInterface.Framework.Gui.Chat.PrintError(
+					chatGui.PrintError(
 						$"Unknown boolean value '{value}. Valid values are: on,off,toggle.");
 					break;
 			}

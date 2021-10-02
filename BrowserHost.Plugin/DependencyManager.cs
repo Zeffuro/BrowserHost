@@ -11,6 +11,7 @@ using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Dalamud.Logging;
 
 namespace BrowserHost.Plugin
 {
